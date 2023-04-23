@@ -6,7 +6,7 @@ PROJ = proj2
 XLOGIN = xhubin04
 SERVER = merlin.vutbr.fit.cz
 
-$(PROJ): main.c
+$(PROJ): queue.c main.c
 	$(CC) $(CFLAGS) $^ -o $@
 
 all: $(PROJ)
@@ -29,3 +29,4 @@ zip: all
 
 upload:
 	scp $(XLOGIN)@$(SERVER):$(PROJ)
+

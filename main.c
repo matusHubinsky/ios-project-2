@@ -13,25 +13,32 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 
+#include "queue.h"
 
 #define ARG_NUM 6
 
 
-int nz;		// pocet zakaznikov
-int nu;		// pocet uradnikov  
-int tz;		// maximalny cas co caka zakaznik od vytvorenia po prichod na postu
-int tu;		// maximalna dlzka prestavky uradnika 
-int f;		// maximálny čas v milisekundách 
+int nz;	// number of customers
+int nu;	// number of officials
+int tz;	// the maximum waiting time that customers waits
+int tu;	// the maximum length of the official's break time
+int f;	// the maximum time in miliseconds
 
-FILE* file_ptr;
+FILE* output;
 
-sem_t *xhubin04_semaphore_customer = NULL;
-sem_t *xhubin04_semaphore_official = NULL;
-sem_t *xhubin04_semaphore_customer_done = NULL;
-sem_t *xhubin04_semaphore_official_done = NULL;
-sem_t *xhubin04_semaphore_mutex = NULL;
-sem_t *xhubin04_semaphore_write = NULL;
+sem_t* xhubin04_semaphore_customer = NULL;
+sem_t* xhubin04_semaphore_official = NULL;
+sem_t* xhubin04_semaphore_customer_done = NULL;
+sem_t* xhubin04_semaphore_official_done = NULL;
+sem_t* xhubin04_semaphore_mutex = NULL;
+sem_t* xhubin04_semaphore_write = NULL;
 
+int* line_number = 0;
+int* customer_number = 0;
+int* official_number = 0;
+struct queue_t* letter_queue = NULL;
+struct queue_t* package_queue = NULL;
+struct queue_t* money_queue = NULL;
 
 static void semaphores_open_all() {
     if ((xhubin04_semaphore_customer = sem_open("/xhubin04_semaphore_customer", O_CREAT|O_EXCL, 0666, 0)) == SEM_FAILED) { 
@@ -110,31 +117,71 @@ static void semaphores_unlink_all() {
 }
 
 
+void mmap_init() {
+	line_number = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	customer_number = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	official_number = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	letter_queue = queue_init();
+	package_queue = queue_init();
+	money_queue = queue_init();
+}
+
+
+void nmap_unlink() {
+	munmap(line_number, sizeof(int));
+	munmap(customer_number, sizeof(int));
+	munmap(official_number, sizeof(int));
+	queue_destroy(letter_queue);
+	queue_destroy(package_queue);
+	queue_destroy(money_queue);
+}
+
+
+
 int main(int argc, char *argv[]) {
+	// check number of arguments
 	if (argc != ARG_NUM) {
 		fprintf(stderr, "Error: Wrong number of argments!\n");
 		return 1;
 	}
 
+	// assing arguments values
 	nz = atoi(argv[1]); 	
 	nu = atoi(argv[2]); 	
 	tz = atoi(argv[3]); 	
 	tu = atoi(argv[4]); 	
 	f = atoi(argv[5]); 	
 
+	// check if arguments are correct, they must be bigger than 0
 	if (nz < 0 || nu < 0) {
 		fprintf(stderr, "Error: Wrong number of people!\n");
 		return 1;
 	}
 
+	// check if waiting times are correct, it must be bigger than 0 and lower than 1000
 	if ((tz < 0 || tz > 1000) || (tu < 0 || tu > 1000) || (f < 0 || f > 1000)) {
 		fprintf(stderr, "Error: Wrong waiting time!\n");
 		return 1;	
 	}
 
+	output = fopen("proj2.out", "w");
+    if (output == NULL) {
+     	fprintf(stderr, "File can't be created\n");
+    	exit(1);
+    }
+	// file buffer
+    setbuf(output, NULL);
+
+	// open all semaphores
 	semaphores_open_all();
+	
+	// close all semaphores
 	semaphores_close_all();
+	
+	// unlink all semaphores
 	semaphores_unlink_all();
-    
+
+	fclose(output);
+
 	return 0;
 }
