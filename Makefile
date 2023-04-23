@@ -14,8 +14,8 @@ all: $(PROJ)
 clear:
 	rm *.o *.out *.txt $(PROJ) $(PROJ).zip
 
-test: all
-	./$(PROJ) 3 2 100 100 100
+test: all semaphores
+	./$(PROJ) 1 1 100 100 100
 
 valgrind:
 	@valgrind ./$(PROJ) --leak-check=full
@@ -23,10 +23,11 @@ valgrind:
 helgrind:
 	@valgrind ./$(PROJ) --tool=helgrind --read-var-info=yes
 
-
 zip: all  
 	zip $(PROJ).zip *.c *.h Makefile
 
 upload:
 	scp $(XLOGIN)@$(SERVER):$(PROJ)
 
+semaphores:
+	@find /dev/shm -user "$$(whoami)" -delete

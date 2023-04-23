@@ -6,12 +6,12 @@
 #include "queue.h"
 
 
-static bool is_empty(struct queue_t* queue) {
-    return (queue->front == NULL ? 1 : 0);
+bool is_empty(struct queue_t* queue) {
+    return (queue->front == NULL) ? true : false;
 }
 
 
-static struct node_t* create_node(int data) {
+static struct node_t* create_node(sem_t* data) {
     struct node_t* new_node = malloc(sizeof(struct node_t));
     if (new_node == NULL) {
         fprintf(stderr, "Error allocating memory for node");
@@ -36,7 +36,7 @@ struct queue_t* queue_init() {
 }
 
 
-void queue_push(struct queue_t* queue, int data) {
+void queue_push(struct queue_t* queue, sem_t* data) {
     struct node_t* new_node = NULL; 
     new_node = create_node(data);
     if (queue->back == NULL) {
@@ -49,14 +49,14 @@ void queue_push(struct queue_t* queue, int data) {
 }
 
 
-int queue_pop(struct queue_t* queue) {
+sem_t* queue_pop(struct queue_t* queue) {
     if (is_empty(queue)) {
         fprintf(stderr, "Error: queue is empty");
         exit(1);
     }
     
     struct node_t* tmp_node = queue->front;
-    int data = tmp_node->data;
+    sem_t* data = tmp_node->data;
     queue->front = tmp_node->next;
     if (queue->front == NULL) {
         queue->back = NULL;
@@ -73,12 +73,3 @@ void queue_destroy(struct queue_t* queue) {
     free(queue);
 }
 
-
-void queue_print(struct queue_t* queue) {
-    struct node_t* tmp_node = queue->front;
-    while (tmp_node != NULL) {
-        printf("%d ", tmp_node->data);
-        tmp_node = tmp_node->next;
-    }
-    printf("\n");
-}
