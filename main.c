@@ -7,14 +7,13 @@
 #include <unistd.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <signal.h>
 #include <semaphore.h>
 #include <string.h>
 
 #include <sys/mman.h>          
 #include <sys/stat.h>
 #include <sys/wait.h>
-
-#include "queue.h"
 
 #define ARG_NUM 6
 
@@ -27,74 +26,60 @@ int f;	// the maximum time in miliseconds
 
 FILE* output;
 
-sem_t* xhubin04_semaphore_customer = NULL;
-sem_t* xhubin04_semaphore_official = NULL;
-sem_t* xhubin04_semaphore_customer_done = NULL;
-sem_t* xhubin04_semaphore_official_done = NULL;
+sem_t* xhubin04_semaphore_letter = NULL;
+sem_t* xhubin04_semaphore_package = NULL;
+sem_t* xhubin04_semaphore_money = NULL;
 sem_t* xhubin04_semaphore_mutex = NULL;
 sem_t* xhubin04_semaphore_write = NULL;
 
-int* line_number = 0;
-int* customer_number = 0;
-int* official_number = 0;
-bool* post_office = false;
-struct queue_t* letter_queue = NULL;
-struct queue_t* package_queue = NULL;
-struct queue_t* money_queue = NULL;
+int* queue_letter = NULL;
+int* queue_package = NULL;
+int* queue_money = NULL;
+int* line_number = NULL;
+bool* post_office;
 
 
 static void semaphores_open_all() {
-    if ((xhubin04_semaphore_customer = sem_open("/xhubin04_semaphore_customer", O_CREAT|O_EXCL, 0666, 0)) == SEM_FAILED) { 
-        fprintf(stderr, "sem_open: xhubin04_semaphore_customer");
+	if ((xhubin04_semaphore_letter = sem_open("xhubin04_semaphore_letter", O_CREAT | O_EXCL, 0666, 0)) == SEM_FAILED){
+        fprintf(stderr, "sem_open: xhubin04_semaphore_letter\n");
         exit(1);
     }
 
-    if ((xhubin04_semaphore_official = sem_open("/xhubin04_semaphore_official", O_CREAT|O_EXCL, 0666, 0)) == SEM_FAILED) {
-        fprintf(stderr, "sem_open: xhubin04_semaphore_official\n");
+	if ((xhubin04_semaphore_package = sem_open("/xhubin04_semaphore_package", O_CREAT | O_EXCL, 0666, 0)) == SEM_FAILED){
+        fprintf(stderr, "sem_open: xhubin04_semaphore_package\n");
         exit(1);
     }
 
-    if ((xhubin04_semaphore_customer_done = sem_open("/xhubin04_semaphore_customer_done", O_CREAT|O_EXCL, 0666, 0)) == SEM_FAILED) { 
-        fprintf(stderr, "sem_open: xhubin04_semaphore_customer_done\n");
+	if ((xhubin04_semaphore_money = sem_open("/xhubin04_semaphore_money", O_CREAT | O_EXCL, 0666, 0)) == SEM_FAILED){
+        fprintf(stderr, "sem_open: xhubin04_semaphore_money\n");
         exit(1);
     }
 
-	if ((xhubin04_semaphore_official_done = sem_open("/xhubin04_semaphore_official_done", O_CREAT|O_EXCL, 0666, 0)) == SEM_FAILED){
-        fprintf(stderr, "sem_open: xhubin04_semaphore_official_done\n");
-        exit(1);
-    }
-
-	if ((xhubin04_semaphore_mutex = sem_open("/xhubin04_semaphore_mutex", O_CREAT|O_EXCL, 0666, 1)) == SEM_FAILED){
+	if ((xhubin04_semaphore_mutex = sem_open("/xhubin04_semaphore_mutex", O_CREAT | O_EXCL, 0666, 1)) == SEM_FAILED){
         fprintf(stderr, "sem_open: xhubin04_semaphore_mutex\n");
         exit(1);
     }
 
-	if ((xhubin04_semaphore_write = sem_open("/xhubin04_semaphore_write", O_CREAT|O_EXCL, 0666, 1)) == SEM_FAILED){
+	if ((xhubin04_semaphore_write = sem_open("/xhubin04_semaphore_write", O_CREAT | O_EXCL | O_RDWR, 0666, 1)) == SEM_FAILED){
         fprintf(stderr, "sem_open: xhubin04_semaphore_write\n");
         exit(1);
     }
-
 }
 
 
 static void semaphores_close_all() {
-	if (sem_close(xhubin04_semaphore_official) == -1) {
-        fprintf(stderr, "sem_close: xhubin04_semaphore_letter\n");
+	if (sem_close(xhubin04_semaphore_letter) == -1) {
+        fprintf(stderr, "sem_open: xhubin04_semaphore_letter\n");
         exit(1);
     }
 
-	if (sem_close(xhubin04_semaphore_customer_done) == -1) {
-        fprintf(stderr, "sem_close: xhubin04_semaphore_customer_done\n");
+	if (sem_close(xhubin04_semaphore_package) == -1) {
+        fprintf(stderr, "sem_open: xhubin04_semaphore_package\n");
         exit(1);
     }
 
-	if (sem_close(xhubin04_semaphore_customer) == -1) {
-        fprintf(stderr, "sem_close: xhubin04_semaphore_customer\n");
-        exit(1);
-    }
-
-	if (sem_close(xhubin04_semaphore_official_done) == -1) {
-        fprintf(stderr, "sem_close: xhubin04_semaphore_official_done\n");
+	if (sem_close(xhubin04_semaphore_money) == -1) {
+        fprintf(stderr, "sem_open: xhubin04_semaphore_money\n");
         exit(1);
     }
 
@@ -111,34 +96,29 @@ static void semaphores_close_all() {
 
 
 static void semaphores_unlink_all() {
-	sem_unlink("/xhubin04_semaphore_customer");
-	sem_unlink("/xhubin04_semaphore_official");
-	sem_unlink("/xhubin04_semaphore_customer_done");
-	sem_unlink("/xhubin04_semaphore_official_done");
+	sem_unlink("xhubin04_semaphore_letter");
+	sem_unlink("xhubin04_semaphore_package");
+	sem_unlink("xhubin04_semaphore_money");
 	sem_unlink("/xhubin04_semaphore_mutex");
 	sem_unlink("/xhubin04_semaphore_write");
 }
 
 
 static void mmap_init() {
+	queue_letter = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	queue_package = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	queue_money = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 	line_number = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-	customer_number = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-	official_number = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 	post_office = mmap(NULL, sizeof(bool), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-	letter_queue = mmap(NULL, sizeof(struct queue_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-	package_queue = mmap(NULL, sizeof(struct queue_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-	money_queue = mmap(NULL, sizeof(struct queue_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 }
 
 
 static void mmap_unlink() {
+	munmap(queue_letter, sizeof(int));
+	munmap(queue_package, sizeof(int));
+	munmap(queue_money, sizeof(int));
 	munmap(line_number, sizeof(int));
-	munmap(customer_number, sizeof(int));
-	munmap(official_number, sizeof(int));
 	munmap(post_office, sizeof(bool));
-	munmap(letter_queue, sizeof(struct queue_t));
-	munmap(package_queue, sizeof(struct queue_t));
-	munmap(money_queue, sizeof(struct queue_t));
 }
 
 
@@ -160,58 +140,41 @@ void customer(int id) {
 	srand(time(0) ^ getpid());
 	
 	write_to_file("Z %d: started\n", id);
-
 	usleep((rand() % (tz + 1)) * 1000);
 
-	sem_t* xhubin04_semaphore_self;
-	char sem_name[100] = "xhubin04_semaphore_self_";
-	char number_string[20];
-	snprintf(number_string, sizeof(number_string), "%d", id);
-    strcat(sem_name, number_string);
-
-	if ((xhubin04_semaphore_self = sem_open(sem_name, O_CREAT|O_EXCL, 0666, 0)) == SEM_FAILED) { 
-        fprintf(stderr, "error sem_open: %s\n", sem_name);
-        exit(1);
-    }
 
 	if (*post_office) {
-		sem_wait(xhubin04_semaphore_mutex);
-
 		int queue_number = rand() % 3 + 1;
 		write_to_file("Z %d: entering office for a service %d\n", id, queue_number);
 
 		if (queue_number == 1) {
-			queue_push(letter_queue, xhubin04_semaphore_self);
+			(*queue_letter)++;
+			sem_wait(xhubin04_semaphore_letter);
 		} else if (queue_number == 2) {
-			queue_push(package_queue, xhubin04_semaphore_self);
+			(*queue_package)++;
+			sem_wait(xhubin04_semaphore_package);	
 		} else if (queue_number == 3) {
-			queue_push(money_queue, xhubin04_semaphore_self);
+			(*queue_money)++;
+			sem_wait(xhubin04_semaphore_money);
 		}
 
-		sem_post(xhubin04_semaphore_mutex);
-		sem_post(xhubin04_semaphore_customer);
+		write_to_file("Z %d: called by office worker\n", id);
 
-		sem_wait(xhubin04_semaphore_official_done);
-
-		write_to_file("Z %d: called by office_worker\n", id);
-	
-		//
 		usleep((rand() % 10) * 1000);
-		sem_post(xhubin04_semaphore_mutex);
-		sem_wait(xhubin04_semaphore_self);
 	}
-		
 	write_to_file("Z %d: going home\n", id);
-
-	if (sem_close(xhubin04_semaphore_self) == -1) {
-        fprintf(stderr, "sem_close: %s\n", sem_name);
-        exit(1);
-    }
-
-	sem_unlink(sem_name);
-	exit(0);
 }
 
+
+bool customers_in_queue() {
+	// fprintf(stderr, "%d %d %d\n", (*queue_letter), (*queue_package), (*queue_money));
+	// fflush(stderr);
+	
+	if ((*queue_letter) || (*queue_package) || (*queue_money)) {
+		return true;
+	}
+	return false; 
+}
 
 
 void official(int id) {
@@ -220,50 +183,53 @@ void official(int id) {
 
 	usleep((rand() % (tu + 1)) * 1000);
 
-	while (true) {
-		sem_wait(xhubin04_semaphore_customer);
-		if (is_empty(letter_queue) && is_empty(package_queue) && is_empty(money_queue)) {
-			sem_wait(xhubin04_semaphore_mutex);
+	start:
+	if (customers_in_queue()) {	
+		sem_wait(xhubin04_semaphore_mutex);
+		
+		int pick = -1;
+		int value = 0;
 
-			struct queue_t* working_queue = NULL;
-			int pick = -1;
-			do {
-				pick = rand() % 3 + 1;
-				if (pick == 1) {
-					working_queue = letter_queue;
-				} else if (pick == 2) {
-					working_queue = package_queue;
-				} else if (pick == 3) {
-					working_queue = money_queue;
-				}
-			} while (!is_empty(working_queue));
+		do {
+			pick = rand() % 3 + 1;
+			if (pick == 1) {
+				value = *queue_letter;
+			} else if (pick == 2) {
+				value = *queue_package;
+			} else {
+				value = *queue_money;
+			}
+		} while (value <= 0);
 
-			sem_post(xhubin04_semaphore_mutex);
+		write_to_file("U %d: serving a service of type %d\n", id, pick);
 
-			write_to_file("U %d: serving a service of type %d\n", id, pick);
-			
-			sem_t* sem = queue_pop(working_queue);
-			sem_post(sem);
-
-			usleep((rand() % 10) * 1000);
-			
-			write_to_file("U %d: service finished\n");
-
-			sem_wait(xhubin04_semaphore_customer_done);
-			sem_post(xhubin04_semaphore_official_done);
-			
-		} else if (*post_office) {
-			write_to_file("U %d: taking brake\n", id);
-			usleep((rand() % (tu + 1)) * 1000);
-			write_to_file( "U %d: break finished\n", id);
+		if (pick == 1) {
+			(*queue_letter)--;
+			sem_post(xhubin04_semaphore_letter);
+		} else if (pick == 2) {
+			(*queue_package)--;
+			sem_post(xhubin04_semaphore_package);
 		} else {
-			write_to_file("U %d: going home\n", id);
-			sem_post(xhubin04_semaphore_customer);
+			(*queue_money)--;
+			sem_post(xhubin04_semaphore_money);
 		}
-		// sem_post(xhubin04_semaphore_customer);
+	
+		sem_post(xhubin04_semaphore_mutex);
+
+		usleep((rand() % 10) * 1000);
+		write_to_file("U %d: service finished\n");
+		goto start;
+	} 
+	else if (*post_office) {
+		write_to_file("U %d: taking brake\n", id);
+		usleep((rand() % (tu + 1)) * 1000);
+		write_to_file( "U %d: break finished\n", id);
+		goto start;
+	} 
+	else {
+		write_to_file("U %d: going home\n", id);
 	}
 
-	// 
 	exit(0);
 }
 
@@ -283,7 +249,7 @@ int main(int argc, char *argv[]) {
 	f = atoi(argv[5]); 	
 
 	// check if arguments are correct, they must be bigger than 0
-	if (nz < 0 || nu < 0) {
+	if (nz < -1 || nu < 0) {
 		fprintf(stderr, "Error: Wrong number of people!\n");
 		return 1;
 	}
@@ -303,12 +269,10 @@ int main(int argc, char *argv[]) {
 	// open all semaphores
 	semaphores_open_all();
 	
-	// 
+	// s
 	mmap_init();
-	letter_queue = queue_init();
-	package_queue = queue_init();
-	money_queue = queue_init();
-
+	
+	*line_number = 1;
 	*post_office = true;
 
 	for (int i = 0; i < nz; i++) {
@@ -335,21 +299,18 @@ int main(int argc, char *argv[]) {
 
 	usleep((f/2 + (rand() % f/2)) * 1000);
 	write_to_file("closing\n");
+	// TODO: semaphore
 	*post_office = false;
+	
+	// close all children
 	while(wait(NULL) > 0);
 	
-
-
-	write_to_file("last\n");
 	// close all semaphores
 	semaphores_close_all();
 	
 	// unlink all semaphores
 	semaphores_unlink_all();
 
-	queue_destroy(letter_queue);
-	queue_destroy(package_queue);
-	queue_destroy(money_queue);
 	// unmap all memory
 	mmap_unlink();
 
