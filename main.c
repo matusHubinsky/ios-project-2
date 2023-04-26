@@ -1,7 +1,7 @@
 /*
  * @author Matus Hubinsky xhubin04
  * @date 26.04.2022
- * @brief program for the post office problem inspired by The Barbershop problem from "The Little Book of Semaphores"
+ * @brief program for the post office problem inspired by Allen B. Downey: The Little Book of Semaphores (The barbershop problem)
  * @file main.c
 */
 
@@ -158,7 +158,7 @@ static void mmap_unlink() {
  * @param format string, same as printf
  * @return
 */
-void write_to_file(char *format, ...) {
+static void write_to_file(char *format, ...) {
 	sem_wait(xhubin04_semaphore_write);
 
 	va_list args;
@@ -177,7 +177,7 @@ void write_to_file(char *format, ...) {
  * @paran 
  * @return true if the are customers in queues, false if not
 */
-bool customers_in_queue() {
+static bool customers_in_queue() {
 	bool result = false;
 	sem_wait(xhubin04_semaphore_mutex);
 	if ((*queue_letter) || (*queue_package) || (*queue_money)) {
@@ -195,7 +195,7 @@ bool customers_in_queue() {
  * @paran 
  * @return true if post office is open, false if not
 */
-bool check_office() {
+static bool check_office() {
 	bool result = false;
 	sem_wait(xhubin04_semaphore_mutex);
 	result = *post_office;
@@ -279,7 +279,7 @@ void official(int id) {
 		write_to_file("U %d: serving a service of type %d\n", id, pick);
 
 		usleep((rand() % 10) * 1000);
-		write_to_file("U %d: service finished\n");
+		write_to_file("U %d: service finished\n", id);
 		goto start;
 	} 
 	else if (check_office()) {
@@ -301,7 +301,7 @@ void official(int id) {
  * @param string pointer to string
  * @return true when the string was a number, false otherwise
 */
-bool is_number(char *string) {
+static bool is_number(char *string) {
 	int number;
 	number = strtol(string, &string, 10);
 	if (*string == '\0') {
@@ -322,7 +322,7 @@ bool is_number(char *string) {
  * @param argv string array of arguments
  * @return
 */
-void process_arguments(int argc, char *argv[]) {
+static void process_arguments(int argc, char *argv[]) {
 	// check number of arguments
 	if (argc != ARG_NUM) {
 		fprintf(stderr, "Error: Wrong number of argments!\n");
