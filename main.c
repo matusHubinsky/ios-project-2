@@ -1,3 +1,10 @@
+/*
+ * @author Matus Hubinsky xhubin04
+ * @date 26.04.2022
+ * @brief program for the post office problem inspired by The Barbershop problem from "The Little Book of Semaphores"
+ * @file main.c
+*/
+
 
 #include <math.h>
 #include <time.h>
@@ -10,7 +17,6 @@
 #include <signal.h>
 #include <semaphore.h>
 #include <string.h>
-
 #include <sys/mman.h>          
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -172,12 +178,23 @@ void write_to_file(char *format, ...) {
  * @return
 */
 bool customers_in_queue() {
+	bool result = false;
+	sem_wait(xhubin04_semaphore_mutex);
 	if ((*queue_letter) || (*queue_package) || (*queue_money)) {
-		return true;
+		result = true;
+	} else {
+		result = false;
 	}
-	return false; 
+	sem_post(xhubin04_semaphore_mutex);
+	return result;
 }
 
+
+/*
+ * @brief process customer 
+ * @param id of customer
+ * @return
+*/
 
 bool check_office() {
 	bool result = false;
@@ -248,13 +265,13 @@ void official(int id) {
 		} while (value <= 0);
 
 		if (pick == 1) {
-			memory_lock((*queue_letter)--);
+			(*queue_letter)--;
 			sem_post(xhubin04_semaphore_letter);
 		} else if (pick == 2) {
-			memory_lock((*queue_package)--);
+			(*queue_package)--;
 			sem_post(xhubin04_semaphore_package);
 		} else {
-			memory_lock((*queue_money)--);
+			(*queue_money)--;
 			sem_post(xhubin04_semaphore_money);
 		}
 	
