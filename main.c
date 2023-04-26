@@ -173,9 +173,9 @@ void write_to_file(char *format, ...) {
 
 
 /*
- * @brief process customer 
- * @param id of customer
- * @return
+ * @brief check if the is any customer in queues, lock memory while checking state
+ * @paran 
+ * @return true if the are customers in queues, false if not
 */
 bool customers_in_queue() {
 	bool result = false;
@@ -191,11 +191,10 @@ bool customers_in_queue() {
 
 
 /*
- * @brief process customer 
- * @param id of customer
- * @return
+ * @brief check if post office is open, lock memory while checking state
+ * @paran 
+ * @return true if post office is open, false if not
 */
-
 bool check_office() {
 	bool result = false;
 	sem_wait(xhubin04_semaphore_mutex);
