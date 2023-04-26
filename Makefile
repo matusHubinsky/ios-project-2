@@ -32,9 +32,6 @@ upload: zip
 merlin: upload
 	ssh $(XLOGIN)@$(SERVER)
 
-bash_test:
-	@./test.sh -c
-
 kill:
 	@ipcs -tm | grep "$$(whoami)" | awk '{print $$1};' | xargs -L1 ipcrm -m
 	@ipcs -ts | grep "$$(whoami)" | awk '{print $$1};' | xargs -L1 ipcrm -s
@@ -44,3 +41,20 @@ kill:
 show:
 	@ipcs -tm | grep "$(whoami)"
 	@ipcs -ts | grep "$$(whoami)"
+
+help:
+	@echo "This is a 2. project post office	from subject IOS"
+	@echo "Usage: make OPTION"
+	@echo "	"
+	@echo "Options: "		
+	@echo " all			compiles program"
+	@echo " clear			clears all .txt .o and .out files"
+	@echo " test			run program with test intut"
+	@echo " valgrind		test program with valgrind "
+	@echo " helgrind		test program with valringds mode helgrind"
+	@echo " zip			compess program files to zip"
+	@echo " upload			upload proj2.zip to merlin"
+	@echo " merlin			login into merlin throught ssh" 
+	@echo " kill			delete semaphoresm, kill all processes named proj2"
+	@echo " show 			show information about shared memory and semaphores"
+	@echo " help 			print help"
