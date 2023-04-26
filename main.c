@@ -147,7 +147,6 @@ static void mmap_unlink() {
 }
 
 
-
 /*
  * @brief close semaphore for writing, write message and open semaphore
  * @param format string, same as printf
@@ -180,6 +179,15 @@ bool customers_in_queue() {
 }
 
 
+bool check_office() {
+	bool result = false;
+	sem_wait(xhubin04_semaphore_mutex);
+	result = *post_office;
+	sem_post(xhubin04_semaphore_mutex);
+	return result;
+}
+
+
 /*
  * @brief process customer 
  * @param id customer's id
@@ -191,7 +199,7 @@ void customer(int id) {
 	write_to_file("Z %d: started\n", id);
 	usleep((rand() % (tz + 1)) * 1000);
 
-	if (*post_office) {	
+	if (check_office()) {	
 		int queue_number = rand() % 3 + 1;
 		write_to_file("Z %d: entering office for a service %d\n", id, queue_number);
 
@@ -240,13 +248,13 @@ void official(int id) {
 		} while (value <= 0);
 
 		if (pick == 1) {
-			(*queue_letter)--;
+			memory_lock((*queue_letter)--);
 			sem_post(xhubin04_semaphore_letter);
 		} else if (pick == 2) {
-			(*queue_package)--;
+			memory_lock((*queue_package)--);
 			sem_post(xhubin04_semaphore_package);
 		} else {
-			(*queue_money)--;
+			memory_lock((*queue_money)--);
 			sem_post(xhubin04_semaphore_money);
 		}
 	
@@ -258,7 +266,7 @@ void official(int id) {
 		write_to_file("U %d: service finished\n");
 		goto start;
 	} 
-	else if (*post_office) {
+	else if (check_office()) {
 		write_to_file("U %d: taking break\n", id);
 		usleep((rand() % (tu + 1)) * 1000);
 		write_to_file( "U %d: break finished\n", id);
