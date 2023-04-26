@@ -15,7 +15,10 @@ clear:
 	rm *.o *.out *.txt $(PROJ) $(PROJ).zip
 
 test: all
-	./$(PROJ) 3 2 10 10 100
+	./$(PROJ) 3 2 100 100 100
+
+check: test
+	@bash kontrola-vystupu.sh < proj2.out
 
 valgrind: all
 	@valgrind ./$(PROJ) --leak-check=full
@@ -50,6 +53,7 @@ help:
 	@echo " all			compiles program"
 	@echo " clear			clears all .txt .o and .out files"
 	@echo " test			run program with test intut"
+	@echo " check 			check format of proj2.out, prints warning when format is wrong"
 	@echo " valgrind		test program with valgrind "
 	@echo " helgrind		test program with valringds mode helgrind"
 	@echo " zip			compess program files to zip"
