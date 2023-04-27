@@ -15,7 +15,14 @@ clear:
 	rm *.o *.out *.txt $(PROJ) $(PROJ).zip
 
 test: all
-	./$(PROJ) 3 2 100 100 100
+	@./deadlock.sh 3 2 10 5 10
+	@./deadlock.sh 3 5 1 3 0
+	@./deadlock.sh 3 1 2 3 1
+	@./deadlock.sh 3 2 100 100 100
+	@./deadlock.sh 100 100 100 100 100
+	@./deadlock.sh 100 100 100 100 0
+	@./deadlock.sh 30 50 10 10 10
+	@./deadlock.sh 30 50 100 100 1000
 
 check: test
 	@bash kontrola-vystupu.sh < proj2.out
