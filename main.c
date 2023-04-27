@@ -179,27 +179,11 @@ static void write_to_file(char *format, ...) {
 */
 static bool customers_in_queue() {
 	bool result = false;
-	sem_wait(xhubin04_semaphore_mutex);
 	if ((*queue_letter) || (*queue_package) || (*queue_money)) {
 		result = true;
 	} else {
 		result = false;
 	}
-	sem_post(xhubin04_semaphore_mutex);
-	return result;
-}
-
-
-/*
- * @brief check if post office is open, lock memory while checking state
- * @paran 
- * @return true if post office is open, false if not
-*/
-static bool check_office() {
-	bool result = false;
-	sem_wait(xhubin04_semaphore_mutex);
-	result = *post_office;
-	sem_post(xhubin04_semaphore_mutex);
 	return result;
 }
 
@@ -214,24 +198,29 @@ void customer(int id) {
 	
 	write_to_file("Z %d: started\n", id);
 	usleep((rand() % (tz + 1)) * 1000);
+	sem_wait(xhubin04_semaphore_mutex);
 
-	if (check_office()) {	
+	if (*post_office) {	
 		int queue_number = rand() % 3 + 1;
 		write_to_file("Z %d: entering office for a service %d\n", id, queue_number);
-
 		if (queue_number == 1) {
-			memory_lock((*queue_letter)++);
+			(*queue_letter)++;
+			sem_post(xhubin04_semaphore_mutex);
 			sem_wait(xhubin04_semaphore_letter);
 		} else if (queue_number == 2) {
-			memory_lock((*queue_package)++);
+			(*queue_package)++;
+			sem_post(xhubin04_semaphore_mutex);
 			sem_wait(xhubin04_semaphore_package);	
 		} else if (queue_number == 3) {
-			memory_lock((*queue_money)++);
+			(*queue_money)++;
+			sem_post(xhubin04_semaphore_mutex);
 			sem_wait(xhubin04_semaphore_money);
 		}
 
 		write_to_file("Z %d: called by office worker\n", id);
 		usleep((rand() % 11) * 1000);
+	} else {
+		sem_post(xhubin04_semaphore_mutex);
 	}
 	write_to_file("Z %d: going home\n", id);
 }
@@ -247,10 +236,10 @@ void official(int id) {
 	write_to_file("U %d: started\n", id);
 
 	start:
+	sem_wait(xhubin04_semaphore_mutex);
 	if (customers_in_queue()) {	
 		int pick = -1;
 		int value = 0;
-		sem_wait(xhubin04_semaphore_mutex);
 
 		do {
 			pick = rand() % 3 + 1;
@@ -265,34 +254,40 @@ void official(int id) {
 
 		if (pick == 1) {
 			(*queue_letter)--;
-			sem_post(xhubin04_semaphore_letter);
 		} else if (pick == 2) {
 			(*queue_package)--;
-			sem_post(xhubin04_semaphore_package);
 		} else {
 			(*queue_money)--;
-			sem_post(xhubin04_semaphore_money);
 		}
 	
+		if (pick == 1) {
+			sem_post(xhubin04_semaphore_letter);
+		} else if (pick == 2) {
+			sem_post(xhubin04_semaphore_package);
+		} else {
+			sem_post(xhubin04_semaphore_money);
+		}
+
 		sem_post(xhubin04_semaphore_mutex);
 
 		write_to_file("U %d: serving a service of type %d\n", id, pick);
-
-		usleep((rand() % 10) * 1000);
+		
+		usleep((rand() % 11) * 1000);
 		write_to_file("U %d: service finished\n", id);
 		goto start;
 	} 
-	else if (check_office()) {
+	else if (*post_office) {
 		write_to_file("U %d: taking break\n", id);
+		sem_post(xhubin04_semaphore_mutex);
 		usleep((rand() % (tu + 1)) * 1000);
 		write_to_file( "U %d: break finished\n", id);
 		goto start;
 	} 
 	else {
+		sem_post(xhubin04_semaphore_mutex);
 		write_to_file("U %d: going home\n", id);
+		exit(0);
 	}
-
-	exit(0);
 }
 
 
@@ -373,8 +368,8 @@ int main(int argc, char *argv[]) {
 	mmap_init();
 	
 	// initialize all shared variables
-	memory_lock(*line_number = 1);
-	memory_lock(*post_office = true);
+	*line_number = 1;
+	*post_office = true;
 
 	// fork all customers
 	for (int i = 0; i < nz; i++) {
@@ -402,9 +397,11 @@ int main(int argc, char *argv[]) {
 
 	// go for sleep for random nubmer in range <f/2, f>, then close the post office
 	usleep(((f/2) + (rand() % (f/2 + 1))) * 1000);
+	sem_wait(xhubin04_semaphore_mutex);
+	*post_office = false;
 	write_to_file("closing\n");
-	memory_lock(*post_office = false);
-	
+	sem_post(xhubin04_semaphore_mutex);
+
 	// wait for all children to die
 	while(wait(NULL) > 0);
 	
