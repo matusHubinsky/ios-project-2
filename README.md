@@ -3,6 +3,9 @@
 The task was inpired by **Allen B. Downey: The Little Book of Semaphores (The barbershop problem)**
 https://greenteapress.com/wp/semaphores/
 
+## Result
+points: 15/15
+
 ## Usage:
 ```
 Options: 
